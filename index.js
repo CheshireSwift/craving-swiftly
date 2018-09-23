@@ -1,4 +1,4 @@
-const { doSearch } = require("./searchFuncs");
+const { doSearch } = require("./search");
 
 if (process.argv.length < 4) {
   console.log("need postcode + search term");
@@ -6,6 +6,6 @@ if (process.argv.length < 4) {
 }
 
 doSearch({
-  postcode: process.argv[2].toUpperCase(),
-  needle: process.argv[3].toLowerCase()
+  postcode: process.argv[2],
+  needle: process.argv[3]
 });
