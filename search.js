@@ -3,23 +3,26 @@ const cheerio = require("cheerio");
 const chalk = require("chalk");
 
 async function restaurantDataForPostcode(postcode) {
-  const url = `https://consumer-ow-api.deliveroo.com/orderapp/v2/restaurants?country_iso_code=GB&page=scheduled&postcode=${postcode}&reduced_supported=true`;
-  const r = await fetch(url);
-  const { data } = await r.json();
-  return data
-    .filter(d => d.type === "restaurant")
-    .map(d => ({ name: d.attributes.name, url: d.links.web }));
+  const url = `https://deliveroo.co.uk/restaurants/london/upper-holloway?postcode=${postcode}`;
+  const pageHtml = await fetch(url).then(r => r.text());
+  const $ = cheerio.load(pageHtml);
+
+  const dataScriptContents = $("script:contains(__NEXT_DATA__)").html();
+  const restaurantJson = dataScriptContents.match(/__NEXT_DATA__ = ({.*})/)[1];
+
+  const scriptData = JSON.parse(restaurantJson);
+  const restaurants = scriptData.props.initialState.restaurants.results.all;
+  return restaurants.map(({ name, url }) => ({ name, url }));
 }
 
 async function addMenuToRestaurantData(restaurantData) {
   const r = await fetch(restaurantData.url);
   const pageHtml = await r.text();
   const $ = cheerio.load(pageHtml);
+
   const menuDataJson = $('[data-component-name="MenuIndexApp"]').html();
-  return {
-    ...restaurantData,
-    menu: JSON.parse(menuDataJson).menu
-  };
+  const { menu } = JSON.parse(menuDataJson);
+  return { ...restaurantData, menu };
 }
 
 async function fetchRestaurantMenus(postcode) {
@@ -43,7 +46,7 @@ function logMatch(name, needle, matchingItem) {
 
 const logMatchingMenuItems = needle => restaurantDatas => {
   restaurantDatas.forEach(({ name, menu }) => {
-    menu.items
+    [...menu.categories, ...menu.items]
       .filter(item => item.name.toLowerCase().includes(needle))
       .forEach(matchingItem => logMatch(name, needle, matchingItem));
   });
